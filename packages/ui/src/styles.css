@@ -32,3 +32,32 @@
 .animate-shutter-flash {
   animation: shutter-flash 350ms ease-out forwards;
 }
+
+/* Print-only layout, shared by every capture surface: everything except
+   `#print-target` is hidden, and its contents are sized to fill the page
+   without browser header/footer chrome fighting it. A guest hits "Print"
+   and gets exactly the photo, nothing else. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-target,
+  #print-target * {
+    visibility: visible;
+  }
+  #print-target {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+  }
+  #print-target img {
+    max-width: 100%;
+    max-height: 100%;
+  }
+  @page {
+    margin: 0.25in;
+  }
+}

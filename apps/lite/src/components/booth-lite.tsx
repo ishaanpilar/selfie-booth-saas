@@ -13,8 +13,7 @@ import {
   PhotoEditor,
   type CameraFrame,
 } from "@selfie-booth/core";
-import { Button, CountdownOverlay, useToast } from "@selfie-booth/ui";
-import { FilterStrip } from "./filter-strip";
+import { Button, CountdownOverlay, FilterStrip, useToast } from "@selfie-booth/ui";
 import { UpsellBanner } from "./upsell-banner";
 import { DEFAULT_STRIP_TEMPLATE } from "@/lib/default-template";
 
@@ -45,6 +44,16 @@ export function BoothLite() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The <video> element only mounts once `stage` becomes "live" (see JSX
+  // below), so attaching the preview has to happen *after* that render
+  // commits, not right after `controller.start()` resolves — at that point
+  // `videoRef.current` is still null because the element doesn't exist yet.
+  useEffect(() => {
+    if (stage === "live" && videoRef.current && controllerRef.current) {
+      controllerRef.current.attachPreview(videoRef.current);
+    }
+  }, [stage]);
+
   const startCamera = useCallback(async () => {
     setError(null);
     try {
@@ -52,7 +61,6 @@ export function BoothLite() {
       const controller = new CameraController(source);
       await controller.start();
       controllerRef.current = controller;
-      if (videoRef.current) controller.attachPreview(videoRef.current);
       setStage("live");
     } catch (err) {
       if (err instanceof CameraSourceError) {

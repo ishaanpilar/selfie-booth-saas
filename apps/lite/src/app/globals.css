@@ -22,31 +22,3 @@ body {
 ::selection {
   @apply bg-indigo-200 dark:bg-indigo-800;
 }
-
-/* Print-only layout: everything except the printable photo is hidden, and
-   the photo is sized to fill the page without browser header/footer chrome
-   fighting it. Guests hit "Print" and get exactly the photo, nothing else. */
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  #print-target,
-  #print-target * {
-    visibility: visible;
-  }
-  #print-target {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-  }
-  #print-target img {
-    max-width: 100%;
-    max-height: 100%;
-  }
-  @page {
-    margin: 0.25in;
-  }
-}

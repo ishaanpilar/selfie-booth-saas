@@ -13,3 +13,4 @@ export * from "./components/stat-card";
 export * from "./components/empty-state";
 export * from "./components/theme-toggle";
 export * from "./components/countdown-overlay";
+export * from "./components/filter-strip";

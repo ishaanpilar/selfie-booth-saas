@@ -38,6 +38,7 @@ interface BoothState {
   photos: CapturedPhoto[];
   editingIndex: number;
   filmStripBlob: Blob | null;
+  filmStripId: string | null;
   filmStripAssetUrl: string | null;
   filmStripPrintDims: { widthMm: number; heightMm: number; dpi: number } | null;
   error: string | null;
@@ -51,7 +52,7 @@ interface BoothState {
   setPhotoEditedBlob: (sequence: number, blob: Blob) => void;
   setPhotoId: (sequence: number, photoId: string) => void;
   setEditingIndex: (index: number) => void;
-  setFilmStrip: (blob: Blob, assetUrl: string | null, dims: { widthMm: number; heightMm: number; dpi: number }) => void;
+  setFilmStrip: (blob: Blob, filmStripId: string | null, assetUrl: string | null, dims: { widthMm: number; heightMm: number; dpi: number }) => void;
   setError: (message: string | null) => void;
   reset: () => void;
 }
@@ -64,6 +65,7 @@ const initialTransientState = {
   photos: [],
   editingIndex: 0,
   filmStripBlob: null,
+  filmStripId: null,
   filmStripAssetUrl: null,
   filmStripPrintDims: null,
   error: null,
@@ -96,7 +98,8 @@ export const useBoothStore = create<BoothState>((set, get) => ({
     set({ photos: get().photos.map((p) => (p.sequence === sequence ? { ...p, editedBlob: blob } : p)) }),
   setPhotoId: (sequence, photoId) => set({ photos: get().photos.map((p) => (p.sequence === sequence ? { ...p, photoId } : p)) }),
   setEditingIndex: (editingIndex) => set({ editingIndex }),
-  setFilmStrip: (filmStripBlob, filmStripAssetUrl, dims) => set({ filmStripBlob, filmStripAssetUrl, filmStripPrintDims: dims }),
+  setFilmStrip: (filmStripBlob, filmStripId, filmStripAssetUrl, dims) =>
+    set({ filmStripBlob, filmStripId, filmStripAssetUrl, filmStripPrintDims: dims }),
   setError: (error) => set({ error }),
   reset: () => set({ ...initialTransientState }),
 }));

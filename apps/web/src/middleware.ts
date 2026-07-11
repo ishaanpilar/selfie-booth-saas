@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/invite", "/offline", "/booth"];
+const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/invite", "/offline", "/booth", "/s"];
 
 /**
  * Edge-safe gate: only checks for the *presence* of a valid-looking session
