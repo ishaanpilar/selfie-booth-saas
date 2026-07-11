@@ -1,7 +1,10 @@
 import "server-only";
 import { headers } from "next/headers";
 import { auth } from "@selfie-booth/auth";
+import { AuthError, assertRoleAtLeast } from "@selfie-booth/auth/role-hierarchy";
 import { prisma, type MemberRole } from "@selfie-booth/database";
+
+export { AuthError, assertRoleAtLeast };
 
 export async function getServerSession() {
   return auth.api.getSession({ headers: await headers() });
@@ -41,22 +44,4 @@ export async function requireActiveOrg(): Promise<ActiveOrgContext> {
   }
 
   return { userId: session.user.id, organizationId: activeOrganizationId, role: member.role as MemberRole };
-}
-
-const ROLE_RANK: Record<MemberRole, number> = { VIEWER: 0, OPERATOR: 1, MANAGER: 2, ADMIN: 3, OWNER: 4 };
-
-export function assertRoleAtLeast(role: MemberRole, minimum: MemberRole): void {
-  if (ROLE_RANK[role] < ROLE_RANK[minimum]) {
-    throw new AuthError("FORBIDDEN", `This action requires the ${minimum} role or higher.`);
-  }
-}
-
-export class AuthError extends Error {
-  constructor(
-    public readonly code: "UNAUTHENTICATED" | "NO_ACTIVE_ORG" | "FORBIDDEN",
-    message: string,
-  ) {
-    super(message);
-    this.name = "AuthError";
-  }
 }
