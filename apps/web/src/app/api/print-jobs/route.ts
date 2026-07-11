@@ -6,6 +6,7 @@ import { requireActiveOrg } from "@/lib/auth-server";
 const PRINT_JOB_STATUSES: PrintJobStatus[] = ["QUEUED", "PRINTING", "COMPLETED", "FAILED", "CANCELLED", "RETRYING"];
 
 const CreatePrintJobSchema = z.object({
+  id: z.string().min(1), // client-generated, see booth-api.ts
   boothId: z.string().min(1),
   filmStripId: z.string().min(1),
   sessionId: z.string().min(1),
@@ -28,8 +29,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Booth not found." }, { status: 404 });
   }
 
-  const printJob = await prisma.printJob.create({
-    data: {
+  const printJob = await prisma.printJob.upsert({
+    where: { id: parsed.data.id },
+    update: {},
+    create: {
+      id: parsed.data.id,
       boothId: parsed.data.boothId,
       filmStripId: parsed.data.filmStripId,
       sessionId: parsed.data.sessionId,

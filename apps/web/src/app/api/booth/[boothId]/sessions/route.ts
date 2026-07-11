@@ -3,6 +3,13 @@ import { z } from "zod";
 import { prisma, Prisma } from "@selfie-booth/database";
 
 const CreateSessionSchema = z.object({
+  // Client-generated (see src/lib/booth/booth-api.ts): the booth flow needs
+  // a session id immediately to keep capturing while offline, well before
+  // this request might ever reach the server. Using it as the row's actual
+  // id (instead of letting Postgres default one) makes replay idempotent —
+  // resubmitting the same queued mutation after a partial failure just
+  // upserts the same row rather than creating a duplicate session.
+  id: z.string().min(1),
   eventId: z.string().min(1),
   guestName: z.string().max(200).optional(),
   guestEmail: z.string().email().optional(),
@@ -24,8 +31,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ boo
     return NextResponse.json({ error: "This booth is not assigned to that event." }, { status: 403 });
   }
 
-  const session = await prisma.photoSession.create({
-    data: {
+  const session = await prisma.photoSession.upsert({
+    where: { id: parsed.data.id },
+    update: {},
+    create: {
+      id: parsed.data.id,
       eventId: parsed.data.eventId,
       boothId,
       guestName: parsed.data.guestName,

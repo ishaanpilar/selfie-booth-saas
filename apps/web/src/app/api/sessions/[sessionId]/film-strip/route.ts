@@ -17,13 +17,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
 
   const form = await request.formData();
   const file = form.get("file");
+  const filmStripId = form.get("filmStripId"); // client-generated, see booth-api.ts
   const templateId = form.get("templateId");
   const widthPx = Number(form.get("widthPx"));
   const heightPx = Number(form.get("heightPx"));
   const dpi = Number(form.get("dpi"));
 
-  if (!(file instanceof File) || typeof templateId !== "string" || !Number.isFinite(widthPx) || !Number.isFinite(heightPx) || !Number.isFinite(dpi)) {
-    return NextResponse.json({ error: "Missing file, templateId, widthPx, heightPx, or dpi." }, { status: 400 });
+  if (
+    !(file instanceof File) ||
+    typeof filmStripId !== "string" ||
+    !filmStripId ||
+    typeof templateId !== "string" ||
+    !Number.isFinite(widthPx) ||
+    !Number.isFinite(heightPx) ||
+    !Number.isFinite(dpi)
+  ) {
+    return NextResponse.json({ error: "Missing file, filmStripId, templateId, widthPx, heightPx, or dpi." }, { status: 400 });
   }
   if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ error: "File exceeds the 40MB upload limit." }, { status: 413 });
@@ -53,8 +62,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
     },
   });
 
-  const filmStrip = await prisma.filmStrip.create({
-    data: { sessionId, templateId, assetId: assetRow.id },
+  const filmStrip = await prisma.filmStrip.upsert({
+    where: { id: filmStripId },
+    update: {},
+    create: { id: filmStripId, sessionId, templateId, assetId: assetRow.id },
   });
 
   await prisma.photoSession.update({ where: { id: sessionId }, data: { completedAt: new Date() } });

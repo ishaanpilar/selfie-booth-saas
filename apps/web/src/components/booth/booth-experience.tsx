@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, WifiOff, RefreshCw } from "lucide-react";
 import { useBoothStore, type BoothConfig } from "@/lib/booth/booth-store";
 import { sendBoothHeartbeat } from "@/lib/booth/booth-api";
+import { useOfflineSync } from "@/lib/offline/use-offline-sync";
 import { WelcomeStage } from "./welcome-stage";
 import { GuestFormStage } from "./guest-form-stage";
 import { CameraStage } from "./camera-stage";
@@ -32,6 +33,7 @@ function boothStatusForStage(stage: ReturnType<typeof useBoothStore.getState>["s
 
 export function BoothExperience({ initialConfig }: { initialConfig: BoothConfig }) {
   const { config, stage, error, loadConfig, reset, setStage } = useBoothStore();
+  const { isOnline, pendingCount } = useOfflineSync();
 
   useEffect(() => {
     loadConfig(initialConfig);
@@ -56,6 +58,18 @@ export function BoothExperience({ initialConfig }: { initialConfig: BoothConfig 
 
   return (
     <div data-kiosk-mode={config.booth.kioskModeOn} className="flex min-h-dvh flex-col">
+      {!isOnline && (
+        <div role="status" className="flex items-center gap-2 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+          <WifiOff className="h-4 w-4 shrink-0" />
+          You&apos;re offline — photos keep working and will sync automatically once the connection is back.
+        </div>
+      )}
+      {isOnline && pendingCount > 0 && (
+        <div role="status" className="flex items-center gap-2 bg-indigo-50 px-4 py-2 text-sm text-indigo-800 dark:bg-indigo-500/10 dark:text-indigo-300">
+          <RefreshCw className="h-4 w-4 shrink-0 animate-spin" />
+          Syncing {pendingCount} item{pendingCount === 1 ? "" : "s"} from earlier…
+        </div>
+      )}
       {error && (
         <div role="alert" className="flex items-center gap-2 bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" />

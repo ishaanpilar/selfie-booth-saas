@@ -9,7 +9,7 @@ import { useBoothStore, createCapturedPhoto } from "@/lib/booth/booth-store";
 import { uploadOriginalPhoto } from "@/lib/booth/booth-api";
 
 export function CameraStage() {
-  const { config, selectedTemplate, sessionId, setCapturedPhotos, setPhotoId, setStage, setError } = useBoothStore();
+  const { config, selectedTemplate, sessionId, setCapturedPhotos, setStage, setError } = useBoothStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const controllerRef = useRef<CameraController | null>(null);
   const [ready, setReady] = useState(false);
@@ -71,24 +71,22 @@ export function CameraStage() {
       setStage("editing");
 
       // Upload originals in the background; the editing stage doesn't need
-      // to wait on this, but each photo needs a server-side `photoId`
-      // before its edited version can be PATCHed later.
+      // to wait on this. `photo.photoId` is already client-generated (see
+      // createCapturedPhoto), so this can't block on a server round trip —
+      // uploadOriginalPhoto queues itself offline if the network is down.
       void Promise.all(
-        photos.map(async (photo) => {
-          try {
-            const { photoId } = await uploadOriginalPhoto(sessionId, photo.sequence, photo.originalBlob);
-            setPhotoId(photo.sequence, photoId);
-          } catch (err) {
-            console.error(`Failed to upload photo ${photo.sequence}:`, err);
-          }
-        }),
+        photos.map((photo) =>
+          uploadOriginalPhoto(sessionId, photo.photoId, photo.sequence, photo.originalBlob).catch((err) =>
+            console.error(`Failed to upload photo ${photo.sequence}:`, err),
+          ),
+        ),
       );
     } catch (err) {
       setCapturing(false);
       setCountdown(null);
       setError(err instanceof Error ? err.message : "Capture failed. Please try again.");
     }
-  }, [sessionId, shotCount, countdownSeconds, setCapturedPhotos, setStage, setPhotoId, setError]);
+  }, [sessionId, shotCount, countdownSeconds, setCapturedPhotos, setStage, setError]);
 
   if (cameraError) {
     return (

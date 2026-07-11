@@ -17,12 +17,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
 
   const form = await request.formData();
   const file = form.get("file");
+  const photoId = form.get("photoId"); // client-generated, see booth-api.ts
   const sequence = Number(form.get("sequence"));
   const widthPx = Number(form.get("widthPx"));
   const heightPx = Number(form.get("heightPx"));
 
-  if (!(file instanceof File) || !Number.isFinite(sequence) || !Number.isFinite(widthPx) || !Number.isFinite(heightPx)) {
-    return NextResponse.json({ error: "Missing file, sequence, widthPx, or heightPx." }, { status: 400 });
+  if (!(file instanceof File) || typeof photoId !== "string" || !photoId || !Number.isFinite(sequence) || !Number.isFinite(widthPx) || !Number.isFinite(heightPx)) {
+    return NextResponse.json({ error: "Missing file, photoId, sequence, widthPx, or heightPx." }, { status: 400 });
   }
   if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ error: "File exceeds the 25MB upload limit." }, { status: 413 });
@@ -53,7 +54,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
   const photo = await prisma.photo.upsert({
     where: { sessionId_sequence: { sessionId, sequence } },
     update: { originalAssetId: assetRow.id },
-    create: { sessionId, sequence, originalAssetId: assetRow.id },
+    create: { id: photoId, sessionId, sequence, originalAssetId: assetRow.id },
   });
 
   await prisma.analyticsEvent.create({

@@ -9,7 +9,9 @@ export interface CapturedPhoto {
   originalBlob: Blob;
   editedBlob: Blob | null;
   edits: PhotoEdits;
-  photoId: string | null;
+  /** Client-generated at capture time (see `createCapturedPhoto`), not
+   * assigned from a server response — see booth-api.ts for why. */
+  photoId: string;
 }
 
 export interface BoothConfig {
@@ -50,7 +52,6 @@ interface BoothState {
   setCapturedPhotos: (photos: CapturedPhoto[]) => void;
   updatePhotoEdits: (sequence: number, edits: PhotoEdits) => void;
   setPhotoEditedBlob: (sequence: number, blob: Blob) => void;
-  setPhotoId: (sequence: number, photoId: string) => void;
   setEditingIndex: (index: number) => void;
   setFilmStrip: (blob: Blob, filmStripId: string | null, assetUrl: string | null, dims: { widthMm: number; heightMm: number; dpi: number }) => void;
   setError: (message: string | null) => void;
@@ -96,7 +97,6 @@ export const useBoothStore = create<BoothState>((set, get) => ({
     set({ photos: get().photos.map((p) => (p.sequence === sequence ? { ...p, edits } : p)) }),
   setPhotoEditedBlob: (sequence, blob) =>
     set({ photos: get().photos.map((p) => (p.sequence === sequence ? { ...p, editedBlob: blob } : p)) }),
-  setPhotoId: (sequence, photoId) => set({ photos: get().photos.map((p) => (p.sequence === sequence ? { ...p, photoId } : p)) }),
   setEditingIndex: (editingIndex) => set({ editingIndex }),
   setFilmStrip: (filmStripBlob, filmStripId, filmStripAssetUrl, dims) =>
     set({ filmStripBlob, filmStripId, filmStripAssetUrl, filmStripPrintDims: dims }),
@@ -105,5 +105,9 @@ export const useBoothStore = create<BoothState>((set, get) => ({
 }));
 
 export function createCapturedPhoto(sequence: number, blob: Blob): CapturedPhoto {
-  return { sequence, originalBlob: blob, editedBlob: null, edits: createEmptyEdits(), photoId: null };
+  // Generated up front (not assigned from the server's response) so the
+  // capture -> edit -> upload flow works identically online or offline —
+  // see src/lib/booth/booth-api.ts and the "client-generated id" note on
+  // the sessions/photos/film-strip API routes.
+  return { sequence, originalBlob: blob, editedBlob: null, edits: createEmptyEdits(), photoId: crypto.randomUUID() };
 }

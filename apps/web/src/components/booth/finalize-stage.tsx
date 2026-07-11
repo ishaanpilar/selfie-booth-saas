@@ -41,6 +41,10 @@ export function FinalizeStage() {
         let filmStripId: string | null = null;
         let assetUrl: string | null = null;
         try {
+          // uploadFilmStrip already swallows *network* failures itself
+          // (it queues the upload offline and returns assetUrl: null so
+          // the guest still gets a working local preview/print/download);
+          // this catch only fires for a genuine server-side rejection.
           const uploaded = await uploadFilmStrip(sessionId, selectedTemplate.id, result.blob, {
             widthPx: result.widthPx,
             heightPx: result.heightPx,
@@ -49,10 +53,6 @@ export function FinalizeStage() {
           filmStripId = uploaded.filmStripId;
           assetUrl = uploaded.assetUrl;
         } catch (err) {
-          // Non-fatal: the guest can still download/print locally even if
-          // the upload (and therefore the shareable QR link and the
-          // ability to send a print job) failed — e.g. the booth is
-          // mid-reconnect. Feature 6's offline queue covers retrying this.
           console.error("Failed to upload film strip:", err);
         }
 
