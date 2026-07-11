@@ -13,8 +13,7 @@ import {
   PhotoEditor,
   type CameraFrame,
 } from "@selfie-booth/core";
-import { Button, useToast } from "@selfie-booth/ui";
-import { CountdownOverlay } from "./countdown-overlay";
+import { Button, CountdownOverlay, useToast } from "@selfie-booth/ui";
 import { FilterStrip } from "./filter-strip";
 import { UpsellBanner } from "./upsell-banner";
 import { DEFAULT_STRIP_TEMPLATE } from "@/lib/default-template";

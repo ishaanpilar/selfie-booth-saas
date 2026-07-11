@@ -21,8 +21,7 @@
     "db:generate": "npm run db:generate --workspace=@selfie-booth/database",
     "db:migrate": "npm run db:migrate --workspace=@selfie-booth/database",
     "db:studio": "npm run db:studio --workspace=@selfie-booth/database",
-    "db:seed": "npm run db:seed --workspace=@selfie-booth/database",
-    "prepare": "npm run db:generate --if-present"
+    "db:seed": "npm run db:seed --workspace=@selfie-booth/database"
   },
   "devDependencies": {
     "typescript": "^5.6.3"

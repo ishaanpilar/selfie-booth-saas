@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ jo
         organizationId: job.booth.organizationId,
         boothId: job.boothId,
         type: parsed.data.status === "COMPLETED" ? "PRINT_COMPLETED" : "PRINT_FAILED",
-        metadata: { printJobId: jobId, error: parsed.data.lastError },
+        metadata: { printJobId: jobId, error: parsed.data.lastError ?? null },
       },
     });
   }

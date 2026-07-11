@@ -2,6 +2,10 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 
+/** Overlays a live camera preview with a big countdown number and a brief
+ * white flash at zero — shared by every capture surface (apps/lite,
+ * apps/web's booth flow) so the "about to be photographed" moment feels
+ * identical across the whole product. */
 export function CountdownOverlay({ secondsRemaining }: { secondsRemaining: number | null }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

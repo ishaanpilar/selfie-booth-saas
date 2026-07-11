@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@selfie-booth/database";
+import { prisma, Prisma } from "@selfie-booth/database";
 import { uploadAsset } from "@/lib/storage";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -54,10 +54,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ph
     },
   });
 
-  let edits: unknown = undefined;
+  let edits: Prisma.InputJsonValue | undefined;
   if (typeof editsRaw === "string") {
     try {
-      edits = JSON.parse(editsRaw);
+      edits = JSON.parse(editsRaw) as Prisma.InputJsonValue;
     } catch {
       return NextResponse.json({ error: "`edits` was not valid JSON." }, { status: 400 });
     }

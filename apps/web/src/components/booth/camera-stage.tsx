@@ -4,8 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Camera as CameraIcon } from "lucide-react";
 import { CameraController, CameraSourceError, WebcamCameraSource } from "@selfie-booth/core/camera";
-import { Button } from "@selfie-booth/ui";
-import { CountdownOverlay } from "@/components/booth/countdown-overlay";
+import { Button, CountdownOverlay } from "@selfie-booth/ui";
 import { useBoothStore, createCapturedPhoto } from "@/lib/booth/booth-store";
 import { uploadOriginalPhoto } from "@/lib/booth/booth-api";
 

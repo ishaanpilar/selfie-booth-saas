@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@selfie-booth/database";
+import { prisma, Prisma } from "@selfie-booth/database";
 
 const CreateSessionSchema = z.object({
   eventId: z.string().min(1),
@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ boo
       guestName: parsed.data.guestName,
       guestEmail: parsed.data.guestEmail,
       guestPhone: parsed.data.guestPhone,
-      consent: parsed.data.consent,
+      consent: parsed.data.consent as Prisma.InputJsonValue | undefined,
     },
   });
 

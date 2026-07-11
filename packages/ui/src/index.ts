@@ -12,3 +12,4 @@ export * from "./components/table";
 export * from "./components/stat-card";
 export * from "./components/empty-state";
 export * from "./components/theme-toggle";
+export * from "./components/countdown-overlay";
