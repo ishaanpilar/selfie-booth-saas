@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@import "@selfie-booth/ui/styles.css";
+
+/* Workspace packages live outside this app's own tree, so Tailwind's
+   automatic content detection needs an explicit nudge to scan them. */
+@source "../../../../packages/ui/src";
+@source "../../../../packages/core/src";
+
+/* Class-based dark mode: ThemeProvider toggles `.dark` on <html>, so `dark:`
+   utilities should key off that class rather than only prefers-color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-50;
+}
+
+/* Kiosk mode: guests shouldn't be able to select/drag booth UI text or
+   trigger the system context menu mid-session. */
+[data-kiosk-mode="true"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+::selection {
+  @apply bg-indigo-200 dark:bg-indigo-800;
+}

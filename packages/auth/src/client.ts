@@ -1,0 +1,16 @@
+import { createAuthClient } from "better-auth/react";
+import { organizationClient } from "better-auth/client/plugins";
+import { ac, roles } from "./permissions";
+
+/**
+ * Client-side auth hooks/actions for use inside apps/web. Mirrors the
+ * server plugin list in ./index.ts so `authClient.organization.hasPermission`
+ * checks stay consistent with what the server actually enforces.
+ */
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  plugins: [organizationClient({ ac, roles })],
+});
+
+export const { useSession, signIn, signOut, signUp, organization, useListOrganizations, useActiveOrganization } =
+  authClient;

@@ -1,0 +1,553 @@
+// ============================================================================
+// Selfie Booth SaaS — Prisma Schema
+//
+// Design notes:
+// - Multi-tenant: every domain model hangs off `Organization` (directly or
+//   transitively). Cross-tenant queries must always filter by organizationId;
+//   application-layer repositories enforce this (see packages/core).
+// - Auth tables (User/Session/Account/Verification/Organization/Member/
+//   Invitation) follow the BetterAuth + BetterAuth "organization" plugin
+//   schema shape, so `npx @better-auth/cli generate` stays a no-op diff.
+// - Storage: `Asset` is a pointer to a Supabase Storage object, never the
+//   binary itself. Every derived artifact (thumbnail, edited image, film
+//   strip) is its own Asset row so retention/CDN rules can differ per kind.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth (BetterAuth-compatible)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+  members  Member[]
+
+  printJobsCreated PrintJob[] @relation("PrintJobCreatedBy")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activeOrganizationId String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ---------------------------------------------------------------------------
+// Multi-tenancy: Organization / Member / Invitation
+// ---------------------------------------------------------------------------
+
+enum MemberRole {
+  OWNER // full control, billing, org deletion
+  ADMIN // manage users, events, booths, templates
+  MANAGER // manage events/booths/templates, no user management
+  OPERATOR // run booths on-site, no configuration access
+  VIEWER // read-only: analytics & history
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     Member[]
+  invitations Invitation[]
+  events      Event[]
+  booths      Booth[]
+  templates   Template[]
+  printers    Printer[]
+  devices     Device[]
+  assets      Asset[]
+  analytics   AnalyticsEvent[]
+
+  @@map("organization")
+}
+
+model Member {
+  id             String     @id @default(cuid())
+  organizationId String
+  userId         String
+  role           MemberRole @default(OPERATOR)
+  createdAt      DateTime   @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("member")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+model Invitation {
+  id             String           @id @default(cuid())
+  organizationId String
+  email          String
+  role           MemberRole       @default(OPERATOR)
+  status         InvitationStatus @default(PENDING)
+  inviterId      String
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}
+
+// ---------------------------------------------------------------------------
+// Events & Booths
+// ---------------------------------------------------------------------------
+
+enum EventStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  COMPLETED
+  ARCHIVED
+  CANCELLED
+}
+
+model Event {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  status         EventStatus @default(DRAFT)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  timezone       String      @default("UTC")
+  settings       Json? // guest form fields, share/print toggles, watermark, etc.
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  boothLinks   EventBooth[]
+  templates    EventTemplate[]
+  sessions     PhotoSession[]
+  analytics    AnalyticsEvent[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@map("event")
+}
+
+enum BoothStatus {
+  OFFLINE
+  ONLINE
+  IDLE
+  CAPTURING
+  PRINTING
+  ERROR
+  MAINTENANCE
+}
+
+model Booth {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  status         BoothStatus @default(OFFLINE)
+  kioskModeOn    Boolean     @default(true)
+  lastHeartbeat  DateTime?
+  settings       Json? // camera source, countdown length, burst count, printer binding
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventLinks   EventBooth[]
+  device       Device?
+  printers     Printer[]
+  sessions     PhotoSession[]
+  printJobs    PrintJob[]
+  analytics    AnalyticsEvent[]
+
+  @@index([organizationId, status])
+  @@map("booth")
+}
+
+/// Many-to-many: a physical booth can be reused across events over time,
+/// and an event may run several booths in parallel.
+model EventBooth {
+  id        String   @id @default(cuid())
+  eventId   String
+  boothId   String
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  booth Booth @relation(fields: [boothId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, boothId])
+  @@map("event_booth")
+}
+
+// ---------------------------------------------------------------------------
+// Templates (film strip / print layouts)
+// ---------------------------------------------------------------------------
+
+enum TemplateLayoutType {
+  STRIP_2
+  STRIP_3
+  STRIP_4
+  SINGLE
+  GRID_4
+  GRID_6
+  CUSTOM
+}
+
+model Template {
+  id             String             @id @default(cuid())
+  organizationId String
+  name           String
+  layoutType     TemplateLayoutType
+  widthMm        Float // physical output width, e.g. 50.8mm (2in) strip
+  heightMm       Float
+  dpi            Int                @default(300)
+  /// Serialized design tree: photo slots, overlay layers (PNG/SVG), text
+  /// bindings, QR code slot, sponsor branding placement. Rendered by
+  /// packages/core's film-strip renderer against this schema.
+  design         Json
+  thumbnailAssetId String?
+  isDefault      Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventLinks   EventTemplate[]
+  filmStrips   FilmStrip[]
+  thumbnailAsset Asset?         @relation(fields: [thumbnailAssetId], references: [id])
+
+  @@index([organizationId])
+  @@map("template")
+}
+
+model EventTemplate {
+  id         String   @id @default(cuid())
+  eventId    String
+  templateId String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, templateId])
+  @@map("event_template")
+}
+
+// ---------------------------------------------------------------------------
+// Capture: PhotoSession / Photo / Asset
+// ---------------------------------------------------------------------------
+
+model PhotoSession {
+  id         String   @id @default(cuid())
+  eventId    String
+  boothId    String
+  guestEmail String?
+  guestPhone String?
+  guestName  String?
+  consent    Json? // marketing opt-in, media release, timestamp/IP
+  startedAt  DateTime @default(now())
+  completedAt DateTime?
+  syncedAt   DateTime? // set once an offline-captured session is uploaded
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  booth  Booth  @relation(fields: [boothId], references: [id], onDelete: Cascade)
+  photos Photo[]
+  filmStrips FilmStrip[]
+  printJobs  PrintJob[]
+
+  @@index([eventId])
+  @@index([boothId])
+  @@map("photo_session")
+}
+
+model Photo {
+  id         String   @id @default(cuid())
+  sessionId  String
+  sequence   Int // capture order within burst
+  originalAssetId String
+  editedAssetId   String?
+  thumbnailAssetId String?
+  edits      Json? // crop/rotate/filter/adjustment parameters (non-destructive)
+  createdAt  DateTime @default(now())
+
+  session         PhotoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  originalAsset   Asset        @relation("PhotoOriginal", fields: [originalAssetId], references: [id])
+  editedAsset     Asset?       @relation("PhotoEdited", fields: [editedAssetId], references: [id])
+  thumbnailAsset  Asset?       @relation("PhotoThumbnail", fields: [thumbnailAssetId], references: [id])
+
+  @@unique([sessionId, sequence])
+  @@map("photo")
+}
+
+model FilmStrip {
+  id         String   @id @default(cuid())
+  sessionId  String
+  templateId String
+  assetId    String
+  createdAt  DateTime @default(now())
+
+  session  PhotoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  template Template     @relation(fields: [templateId], references: [id])
+  asset    Asset        @relation(fields: [assetId], references: [id])
+  printJobs PrintJob[]
+
+  @@index([sessionId])
+  @@map("film_strip")
+}
+
+enum AssetType {
+  ORIGINAL
+  EDITED
+  THUMBNAIL
+  FILM_STRIP
+  OVERLAY_PNG
+  OVERLAY_SVG
+  SPONSOR_LOGO
+}
+
+model Asset {
+  id             String    @id @default(cuid())
+  organizationId String
+  type           AssetType
+  storageKey     String // Supabase Storage object path
+  url            String // public or signed URL
+  mimeType       String
+  widthPx        Int?
+  heightPx       Int?
+  dpi            Int?
+  sizeBytes      Int
+  checksum       String?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  photosOriginal  Photo[] @relation("PhotoOriginal")
+  photosEdited    Photo[] @relation("PhotoEdited")
+  photosThumbnail Photo[] @relation("PhotoThumbnail")
+  filmStrips      FilmStrip[]
+  templateThumbs  Template[]
+
+  @@index([organizationId, type])
+  @@map("asset")
+}
+
+// ---------------------------------------------------------------------------
+// Printing
+// ---------------------------------------------------------------------------
+
+enum PrinterConnectionType {
+  WEBUSB
+  LOCAL_AGENT
+  CLOUD
+}
+
+enum PrinterStatus {
+  UNKNOWN
+  READY
+  OFFLINE
+  ERROR
+  OUT_OF_PAPER
+  OUT_OF_INK
+  BUSY
+}
+
+model Printer {
+  id             String                @id @default(cuid())
+  organizationId String
+  boothId        String?
+  name           String
+  connectionType PrinterConnectionType
+  status         PrinterStatus         @default(UNKNOWN)
+  driverInfo     Json? // vendor/product IDs (WebUSB) or agent printer ID
+  lastSeenAt     DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  booth        Booth?       @relation(fields: [boothId], references: [id])
+  printJobs    PrintJob[]
+
+  @@index([organizationId])
+  @@index([boothId])
+  @@map("printer")
+}
+
+enum PrintJobStatus {
+  QUEUED
+  PRINTING
+  COMPLETED
+  FAILED
+  CANCELLED
+  RETRYING
+}
+
+model PrintJob {
+  id              String         @id @default(cuid())
+  boothId         String
+  printerId       String?
+  filmStripId     String
+  sessionId       String
+  createdById     String?
+  status          PrintJobStatus @default(QUEUED)
+  copies          Int            @default(1)
+  attempts        Int            @default(0)
+  maxAttempts     Int            @default(3)
+  lastError       String?
+  queuedAt        DateTime       @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  booth     Booth        @relation(fields: [boothId], references: [id], onDelete: Cascade)
+  printer   Printer?     @relation(fields: [printerId], references: [id])
+  filmStrip FilmStrip    @relation(fields: [filmStripId], references: [id])
+  session   PhotoSession @relation(fields: [sessionId], references: [id])
+  createdBy User?        @relation("PrintJobCreatedBy", fields: [createdById], references: [id])
+
+  @@index([boothId, status])
+  @@index([status])
+  @@map("print_job")
+}
+
+// ---------------------------------------------------------------------------
+// Devices (kiosks, tablets, print agents) — health & offline sync tracking
+// ---------------------------------------------------------------------------
+
+enum DeviceType {
+  BOOTH_KIOSK
+  TABLET
+  ADMIN_CONSOLE
+  PRINT_AGENT
+}
+
+model Device {
+  id             String     @id @default(cuid())
+  organizationId String
+  boothId        String?    @unique
+  type           DeviceType
+  name           String
+  appVersion     String?
+  userAgent      String?
+  lastHeartbeat  DateTime?
+  isOnline       Boolean    @default(false)
+  pendingSyncCount Int      @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  booth        Booth?       @relation(fields: [boothId], references: [id])
+
+  @@index([organizationId])
+  @@map("device")
+}
+
+// ---------------------------------------------------------------------------
+// Analytics
+// ---------------------------------------------------------------------------
+
+enum AnalyticsEventType {
+  SESSION_STARTED
+  PHOTO_CAPTURED
+  FILM_STRIP_GENERATED
+  PRINT_QUEUED
+  PRINT_COMPLETED
+  PRINT_FAILED
+  SHARE
+  QR_SCAN
+  BOOTH_ONLINE
+  BOOTH_OFFLINE
+}
+
+model AnalyticsEvent {
+  id             String             @id @default(cuid())
+  organizationId String
+  eventId        String?
+  boothId        String?
+  type           AnalyticsEventType
+  metadata       Json?
+  occurredAt     DateTime           @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id])
+  booth        Booth?       @relation(fields: [boothId], references: [id])
+
+  @@index([organizationId, type, occurredAt])
+  @@index([eventId])
+  @@index([boothId])
+  @@map("analytics_event")
+}

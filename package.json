@@ -1,0 +1,30 @@
+{
+  "name": "selfie-booth-saas",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Enterprise multi-tenant Selfie Booth SaaS platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=@selfie-booth/web",
+    "dev:lite": "npm run dev --workspace=@selfie-booth/lite",
+    "build": "npm run build --workspace=@selfie-booth/database && npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=@selfie-booth/database",
+    "db:migrate": "npm run db:migrate --workspace=@selfie-booth/database",
+    "db:studio": "npm run db:studio --workspace=@selfie-booth/database",
+    "db:seed": "npm run db:seed --workspace=@selfie-booth/database",
+    "prepare": "npm run db:generate --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
