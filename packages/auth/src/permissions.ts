@@ -74,5 +74,12 @@ export const viewer = ac.newRole({
   organization: [],
 });
 
-/** Maps directly onto `MemberRole` in the Prisma schema — keep 1:1. */
-export const roles = { owner, admin, manager, operator, viewer };
+/**
+ * Maps directly onto `MemberRole` in the Prisma schema — keep 1:1. These
+ * object keys are the actual role identifier strings BetterAuth's
+ * organization plugin persists into `Member.role` (via the Prisma
+ * adapter, the same column the enum constrains), so they must match the
+ * enum's casing exactly or every invitation-accept/role-assignment write
+ * fails as an invalid enum value at the database level.
+ */
+export const roles = { OWNER: owner, ADMIN: admin, MANAGER: manager, OPERATOR: operator, VIEWER: viewer };

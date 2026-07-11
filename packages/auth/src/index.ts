@@ -38,7 +38,7 @@ export const auth = betterAuth({
       roles,
       allowUserToCreateOrganization: true,
       organizationLimit: 5,
-      creatorRole: "owner",
+      creatorRole: "OWNER",
       invitationExpiresIn: 60 * 60 * 24 * 7,
       sendInvitationEmail: async (data) => {
         // Wired to the transactional email provider in the web app's
